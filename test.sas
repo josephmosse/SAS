@@ -149,3 +149,102 @@ RUN;
 
 
 /* Nombre de contrat Moyen par societaires */
+proc freq data=contrat_vehicule_societaire noprint;
+   tables societaire_nu / out=nb_contrats (drop=percent);
+run;
+
+proc means data=nb_contrats mean maxdec=2;
+   var count;
+   title "Nombre moyen de contrats par sociétaire";
+run;
+
+/* Relation sexe gamme produit */
+proc freq data=contrat_vehicule_societaire;
+	tables societaire_sexe_cd*gamme_produit_cd;
+run;
+
+
+proc freq data=vehicule;
+  tables vocation_cd / out=tableau_frequence;
+run;
+ 
+proc print data=tableau_frequence;
+run;
+
+
+/* Étape 1 : Utiliser PROC FREQ pour générer les fréquences des valeurs de la variable marque_vehicule_lb */
+proc freq data=vehicule noprint;
+  tables marque_vehicule_lb / out=freq_values (keep=marque_vehicule_lb count) noprint;
+run;
+ 
+/* Étape 2 : Utiliser PROC SORT pour trier les fréquences par ordre décroissant */
+proc sort data=freq_values out=sorted_freq_values;
+  by descending count;
+run;
+ 
+/* Étape 3 : Utiliser PROC PRINT pour afficher les cinq valeurs les plus fréquentes */
+proc print data=sorted_freq_values(obs=10);
+  title 'Top 10 des fréquences les plus élevées pour la variable marque_vehicule_lb';
+run;
+
+ 
+/* Étape 1 : Utiliser PROC FREQ pour générer les fréquences des valeurs de la variable marque_vehicule_lb */
+proc freq data=vehicule noprint;
+  tables marque_vehicule_lb / out=freq_values (keep=marque_vehicule_lb count) noprint;
+run;
+ 
+/* Étape 2 : Filtrer les fréquences supérieures à 100 */
+data freq_over_100;
+  set freq_values;
+  where count > 100;
+run;
+ 
+/* Étape 3 : Utiliser PROC SORT pour trier les fréquences supérieures à 100 dans l'ordre décroissant */
+proc sort data=freq_over_100 out=sorted_freq_over_100;
+  by descending count;
+run;
+ 
+/* Étape 4 : Utiliser PROC PRINT pour afficher les valeurs avec des fréquences supérieures à 100 dans l'ordre décroissant */
+proc print data=sorted_freq_over_100;
+  title 'Fréquences supérieures à 100 pour la variable marque_vehicule_lb (ordre décroissant)';
+run;
+ 
+ 
+proc freq data=vehicule;
+  tables cylindree_nu / out=tableau_frequence;
+run;
+ 
+proc print data=tableau_frequence;
+run;
+ 
+/* expliquer les -1 électrique*/
+proc freq data=vehicule;
+	tables cylindree_nu * energie_cd;
+run;
+
+
+/* Utilisez la procédure PROC FREQ pour calculer la fréquence */
+proc freq data=contrat;
+  tables canal_souscription_cd ;
+run;
+ 
+ 
+/* Utilisez la procédure PROC MEANS pour calculer la moyenne */
+proc means data=contrat mean;
+  var prime_annuelle_ht_mt;
+run;
+ 
+/* Utilisez la procédure PROC FREQ pour calculer la fréquence */
+proc freq data=contrat;
+  tables gamme_produit_cd ;
+run;
+ 
+/* Utilisez la procédure PROC FREQ pour calculer la fréquence en tenant compte de la variable gamme_produit_cd */
+proc freq data=Contrat_vehicule_societaire;
+  tables societaire_sexe_cd * gamme_produit_cd / out=sexpro;
+ 
+run;
+ 
+data sexpro1; set sexpro;
+where societaire_sexe_cd ="-1";
+run;
