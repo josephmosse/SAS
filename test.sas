@@ -1,14 +1,14 @@
-libname biblio "P:/SAS";
+libname biblio "/home/u63112220/M2";
 
 PROC IMPORT OUT= BIBLIO.contrat 
-            DATAFILE= "P:\SAS\BDD_CONTRAT.txt" 
+            DATAFILE= "/home/u63112220/M2/BDD_CONTRAT.txt" 
             DBMS=TAB REPLACE;
      GETNAMES=YES;
      DATAROW=2; 
 RUN;
  
 PROC IMPORT OUT= BIBLIO.SOC 
-            DATAFILE= "P:\SAS\BDD_SOC.txt" 
+            DATAFILE= "/home/u63112220/M2/BDD_SOC.txt" 
             DBMS=TAB REPLACE;
      GETNAMES=YES;
      DATAROW=2; 
@@ -16,7 +16,7 @@ RUN;
  
  
 PROC IMPORT OUT= BIBLIO.VEHICULE 
-            DATAFILE= "P:\SAS\BDD_VEHICULE.txt" 
+            DATAFILE= "/home/u63112220/M2/BDD_VEHICULE.txt" 
             DBMS=TAB REPLACE;
      GETNAMES=YES;
      DATAROW=2; 
@@ -63,22 +63,49 @@ data contrat_vehicule_societaire;
 	by societaire_nu;
 	if a;
 run;
-/*Stats sur l'age des sociétaires*/ 
- 
+
+
+options DATASTMTCHK=NONE;
+/*----------------------------------
+		TABLE SOCIETAIRES
+----------------------------------*/
+/*Stats sur l'age des societaires*/ 
 
 /* Calcul de l'age des societaires */
-options DATASTMTCHK=NONE;
-data societaire2;
+data societaire_age;
 	set societaire;
 	age = year(today()) - year(societaire_naissance_dt);
 run;
 
-proc freq data=societaire2;
+proc freq data=societaire_age;
 	tables age;
 run;
 	
+/* RÃ©partition des sexes */
+proc format;
+	value $sexeFmt
+		'01'='Femme'
+		'02'='Homme';
+run;
+
+proc freq data=societaire;
+	tables societaire_sexe_cd;
+	format societaire_sexe_cd $sexeFmt.;
+run; 
+
+/* Repartition geographique */
+
+data societaire_dep;
+    set societaire;
+    departement = substr(code_postal_cd, 1, 2); /* substr(variable, position_de_debut, longueur) */
+run;
  
-/*Stat sur les CSP*/
+proc freq data=societaire_dep;
+    tables departement;
+run;
+
+
+/* Repartition des CSP */
 data societaire_csp;
 	set societaire;
  
@@ -86,24 +113,24 @@ data societaire_csp;
 	if length(trim(societaire_csp_cd)) < 3 then do ; societaire_csp_cd = "000"; 
 											end;
  
-	/* Variable qui récupère le second caractère de societaire_csp_cd et le transforme en valeur numérique*/
+	/* Variable qui recupere le second caractere de societaire_csp_cd et le transforme en valeur numerique*/
 	csp = int(substr(societaire_csp_cd,2,2));
 run;
  
 proc format;
 	value cspFmt
 		11 = "Agriculteurs exploitants"
-		12 = "Artisans commerçants"
-		13 = "Chef d'entreprises de plus de 10 salariés"
-		14 = "Professions libérales et artistiques"
+		12 = "Artisans commerï¿½ants"
+		13 = "Chef d'entreprises de plus de 10 salariï¿½s"
+		14 = "Professions libï¿½rales et artistiques"
 		20 = "Cadres"
-		30 = "Professions intermédiaires"
-		40 = "Employés"
+		30 = "Professions intermï¿½diaires"
+		40 = "Employï¿½s"
 		50 = "Ouvriers"
-		61 = "Retraités"
+		61 = "Retraitï¿½s"
 		62 = "Etudiants"
 		63 = "En recherche d'emploi"
-		64 = "Sans activité professionnelle"
+		64 = "Sans activitï¿½ professionnelle"
 		70 = "Personnes morales"
 		80 = "Non connu"
 		0  = "Pas de csp";
@@ -112,32 +139,9 @@ run;
 proc freq data = societaire_csp;
 	tables csp;
 	format csp cspFmt.;
-run;
+run; 
 
-/* Statistiques sur les ages */
-proc format;
-	value $sexeFmt
-		'01'='Femme'
-		'02'='Homme';
-RUN;
-
-proc freq data=biblio.soc;
-	tables societaire_sexe_cd;
-	format societaire_sexe_cd $sexeFmt.;
-run;
-
-/* Distribution département sociétaires d'habitation  */
- 
-data societaire_dep;
-    set societaire;
-    departement = substr(code_postal_cd, 1, 2); /* substr(variable, position_de_début, longueur) */
-run;
- 
-proc freq data=societaire_dep;
-    tables departement;
-run;
- 
-/* Ancienneté des sociétaires*/
+/* Anciennete des societaires*/
 DATA societaire_anc;
   SET societaire;
   anciennete = YEAR(TODAY()) - YEAR(societaire_anciennete_dt);
@@ -147,6 +151,82 @@ PROC UNIVARIATE DATA=societaire_anc;
   VAR anciennete;
 RUN;
 
+/*----------------------------------
+		TABLE VEHICULE
+----------------------------------*/
+/*Type de vehicule*/
+proc freq data=vehicule;
+  tables vocation_cd;
+run;
+
+/* Marques les plus assurÃ©es */
+proc freq data=vehicule noprint;
+  tables marque_vehicule_lb / out=freq_values (keep=marque_vehicule_lb count) noprint;
+run;
+ 
+proc sort data=freq_values out=sorted_freq_values;
+  by descending count;
+run;
+ 
+proc print data=sorted_freq_values(obs=10);
+run;
+ 
+/* Repartition des cylindrees */
+
+proc freq data=vehicule;
+  tables cylindree_nu;
+run;
+ 
+/* expliquer les -1 electrique*/
+proc freq data=vehicule;
+	tables cylindree_nu * energie_cd;
+run;
+
+
+/*----------------------------------
+		TABLE CONTRAT
+----------------------------------*/
+/* Repartition des produits */
+proc freq data=contrat;
+    tables produit_cd;
+run;
+
+/* Repartition des formules */
+proc freq data=contrat;
+    tables formule_courte_cd;
+run;
+
+/* Cannaux de souscription */
+proc freq data=contrat;
+  tables canal_souscription_cd ;
+run;
+ 
+/* Prime annuelle moyenne */
+proc means data=contrat mean;
+  var prime_annuelle_ht_mt;
+run;
+ 
+/* Repartition des PRO PART */
+proc freq data=contrat;
+  tables gamme_produit_cd ;
+run;
+
+/* DurÃ©e moyenne de souscription */
+data contrat_date_souscription;
+    set contrat;
+    /*Calcul de la durÃ©e en jours depuis la souscription jusqu'Ã  aujourd'hui*/
+    /*duree_souscription = year(today()) - year(saisie_contrat_dt);*/
+    duree_souscription = intck('month', saisie_contrat_dt, today());
+run;
+
+proc means data=contrat_date_souscription mean;
+    var duree_souscription;
+run;
+
+
+/*----------------------------------
+		TABLE FUSIONNEE
+----------------------------------*/
 
 /* Nombre de contrat Moyen par societaires */
 proc freq data=contrat_vehicule_societaire noprint;
@@ -155,8 +235,8 @@ run;
 
 proc means data=nb_contrats mean maxdec=2;
    var count;
-   title "Nombre moyen de contrats par sociétaire";
 run;
+
 
 /* Relation sexe gamme produit */
 proc freq data=contrat_vehicule_societaire;
@@ -164,87 +244,13 @@ proc freq data=contrat_vehicule_societaire;
 run;
 
 
-proc freq data=vehicule;
-  tables vocation_cd / out=tableau_frequence;
+data formule_dep;
+    set contrat_vehicule_societaire;
+    departement = substr(code_postal_cd, 1, 2); /* substr(variable, position_de_debut, longueur) */
 run;
- 
-proc print data=tableau_frequence;
+
+proc freq data=contrat_vehicule_societaire;
+    tables formule_courte_cd*departement;
 run;
 
 
-/* Étape 1 : Utiliser PROC FREQ pour générer les fréquences des valeurs de la variable marque_vehicule_lb */
-proc freq data=vehicule noprint;
-  tables marque_vehicule_lb / out=freq_values (keep=marque_vehicule_lb count) noprint;
-run;
- 
-/* Étape 2 : Utiliser PROC SORT pour trier les fréquences par ordre décroissant */
-proc sort data=freq_values out=sorted_freq_values;
-  by descending count;
-run;
- 
-/* Étape 3 : Utiliser PROC PRINT pour afficher les cinq valeurs les plus fréquentes */
-proc print data=sorted_freq_values(obs=10);
-  title 'Top 10 des fréquences les plus élevées pour la variable marque_vehicule_lb';
-run;
-
- 
-/* Étape 1 : Utiliser PROC FREQ pour générer les fréquences des valeurs de la variable marque_vehicule_lb */
-proc freq data=vehicule noprint;
-  tables marque_vehicule_lb / out=freq_values (keep=marque_vehicule_lb count) noprint;
-run;
- 
-/* Étape 2 : Filtrer les fréquences supérieures à 100 */
-data freq_over_100;
-  set freq_values;
-  where count > 100;
-run;
- 
-/* Étape 3 : Utiliser PROC SORT pour trier les fréquences supérieures à 100 dans l'ordre décroissant */
-proc sort data=freq_over_100 out=sorted_freq_over_100;
-  by descending count;
-run;
- 
-/* Étape 4 : Utiliser PROC PRINT pour afficher les valeurs avec des fréquences supérieures à 100 dans l'ordre décroissant */
-proc print data=sorted_freq_over_100;
-  title 'Fréquences supérieures à 100 pour la variable marque_vehicule_lb (ordre décroissant)';
-run;
- 
- 
-proc freq data=vehicule;
-  tables cylindree_nu / out=tableau_frequence;
-run;
- 
-proc print data=tableau_frequence;
-run;
- 
-/* expliquer les -1 électrique*/
-proc freq data=vehicule;
-	tables cylindree_nu * energie_cd;
-run;
-
-
-/* Utilisez la procédure PROC FREQ pour calculer la fréquence */
-proc freq data=contrat;
-  tables canal_souscription_cd ;
-run;
- 
- 
-/* Utilisez la procédure PROC MEANS pour calculer la moyenne */
-proc means data=contrat mean;
-  var prime_annuelle_ht_mt;
-run;
- 
-/* Utilisez la procédure PROC FREQ pour calculer la fréquence */
-proc freq data=contrat;
-  tables gamme_produit_cd ;
-run;
- 
-/* Utilisez la procédure PROC FREQ pour calculer la fréquence en tenant compte de la variable gamme_produit_cd */
-proc freq data=Contrat_vehicule_societaire;
-  tables societaire_sexe_cd * gamme_produit_cd / out=sexpro;
- 
-run;
- 
-data sexpro1; set sexpro;
-where societaire_sexe_cd ="-1";
-run;
