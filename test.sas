@@ -8,7 +8,7 @@ PROC IMPORT OUT= BIBLIO.contrat
      GETNAMES=YES;
      DATAROW=2; 
 RUN;
- 
+
 PROC IMPORT OUT= BIBLIO.SOC 
             DATAFILE= "/home/u63112220/M2/BDD_SOC.txt" 
             DBMS=TAB REPLACE;
@@ -73,82 +73,86 @@ run;
 		TABLE SOCIETAIRES
 ----------------------------------*/
 /*Stats sur l'age des societaires*/
-/* Calcul de l'age des societaires */
+/* Calcul de l'age des societaires  et des tranches d'age*/
 data societaire_age;
 	set societaire;
 	age = year(today()) - year(societaire_naissance_dt);
+	
+	if age >= 18 and age < 30 then tranche_age = '18-29';
+    else if age >= 30 and age < 40 then tranche_age = '30-39';
+    else if age >= 40 and age < 50 then tranche_age = '40-49';
+    else if age >= 50 and age < 60 then tranche_age = '50-59';
+    else if age >= 60 and age < 70 then tranche_age = '60-69';
+    else if age >= 70 and age < 200 then tranche_age = '70 +';
 run;
 
+/*Stats sur l'age*/
+proc univariate data= societaire_age;
+	var age;
+run;
+
+/* Répartition des ages par tranches */
 proc freq data=societaire_age;
-	tables age;
+	tables tranche_age / norow nocol ;
 run;
 	
 /* Répartition des sexes */
-proc format;
-	value $sexeFmt
-		'01'='Femme'
-		'02'='Homme';
-run;
-
 proc freq data=societaire;
 	tables societaire_sexe_cd;
-	format societaire_sexe_cd $sexeFmt.;
 run; 
 
-/* Repartition geographique */
+/* Pyramide des ages */
+proc freq data=societaire_age;
+	tables age * societaire_sexe_cd / norow nocol nopercent;
+	output out=test;
+run;
 
+
+
+
+/* Repartition geographique */
 data societaire_dep;
     set societaire;
-    departement = substr(code_postal_cd, 1, 2); /* substr(variable, position_de_debut, longueur) */
+    
+    departement = substr(code_postal_cd, 1,2); /* substr(variable, position_de_debut, longueur) */
+   	
+	if code_postal_cd >= '20000' and code_postal_cd < '20200' then departement = '2A';
+    else if code_postal_cd >= '20200' and code_postal_cd < '20300' then departement = '2B';
+    
+    else if code_postal_cd =: '97' or code_postal_cd =: '98' then do; /* DOM-TOM */
+        departement = substr(code_postal_cd, 1, 3); /* Les trois premiers chiffres pour les DOM-TOM */
+    end;
+    
 run;
  
 proc freq data=societaire_dep;
     tables departement;
 run;
 
-
 /* Repartition des CSP */
-data societaire_csp;
-	set contrat_vehicule_societaire;
- 
-	/* Sup les obs sans csp */
-	if length(trim(societaire_csp_cd)) < 3 then do ; societaire_csp_cd = "000"; 
-											end;
- 
-	/* Variable qui recupere le second caractere de societaire_csp_cd et le transforme en valeur numerique*/
-	csp = int(substr(societaire_csp_cd,2,2));
+proc freq data = societaire;
+	tables societaire_csp_cd;
 run;
+
  
-proc format;
-	value cspFmt
-		11 = "Agriculteurs exploitants"
-		12 = "Artisans commer�ants"
-		13 = "Chef d'entreprises de plus de 10 salari�s"
-		14 = "Professions lib�rales et artistiques"
-		20 = "Cadres"
-		30 = "Professions interm�diaires"
-		40 = "Employ�s"
-		50 = "Ouvriers"
-		61 = "Retrait�s"
-		62 = "Etudiants"
-		63 = "En recherche d'emploi"
-		64 = "Sans activit� professionnelle"
-		70 = "Personnes morales"
-		80 = "Non connu"
-		0  = "Pas de csp";
-run;
- 
-proc freq data = societaire_csp;
-	tables csp;
-	format csp cspFmt.;
-run; 
 
 /* Anciennete des societaires*/
-DATA societaire_anc;
-  SET societaire;
-  anciennete = YEAR(TODAY()) - YEAR(societaire_anciennete_dt);
-RUN;
- 
+data societaire_anc;
+  set societaire;
+  anciennete = year(today()) - year(societaire_anciennete_dt);
+  
+  if anciennete >= 0 and anciennete < 5 then tranche_anc = '00-05';
+  else if anciennete >= 5 and anciennete < 10 then tranche_anc = '05-09';
+  else if anciennete >= 10 and anciennete < 15 then tranche_anc = '10-14';
+  else if anciennete >= 15 and anciennete < 20 then tranche_anc = '15-19';
+  else if anciennete >= 25 and anciennete < 30 then tranche_anc = '25-29';
+  else if anciennete >= 30 and anciennete < 300 then tranche_anc = '30 ou +';
+run;
+
+proc freq data=societaire_anc;
+	tables tranche_anc;
+run;
+
 PROC UNIVARIATE DATA=societaire_anc;
   VAR anciennete;
 RUN;
@@ -172,7 +176,25 @@ run;
  
 proc print data=sorted_freq_values(obs=10);
 run;
- 
+
+/* Date de mise en circulation */
+data mise_cirulation;
+	set vehicule;
+	
+	circulation = year(today()) - year(mise_circulation_dt);
+	if 		circulation >= 0  and circulation < 10  then tranche_circ = '[00-10[';
+  	else if circulation >= 10 and circulation < 20 then tranche_circ = '[10-20[';
+  	else if circulation >= 20 and circulation < 30 then tranche_circ = '[20-30[';
+  	else if circulation >= 30 and circulation < 300 then tranche_circ = '[30 +';
+run;
+
+proc univariate data=mise_cirulation;
+	var circulation;
+run;
+proc freq data=mise_cirulation;
+	tables tranche_circ;
+run;
+
 /* Repartition des cylindrees */
 
 proc freq data=vehicule;
@@ -188,9 +210,9 @@ run;
 /*----------------------------------
 		TABLE CONTRAT
 ----------------------------------*/
-/* Repartition des produits */
+/* Repartition des catégories produits */
 proc freq data=contrat;
-    tables produit_cd;
+    tables categorie_produit_cd;
 run;
 
 /* Repartition des formules */
@@ -198,30 +220,69 @@ proc freq data=contrat;
     tables formule_courte_cd;
 run;
 
-/* Cannaux de souscription */
+/* Repartition des fractionnement */
+proc freq data=contrat;
+    tables prime_annuelle_ht_mt;
+run;
+
+/* Part des fractionnements par prime */
+proc freq data=contrat;
+    tables prime_annuelle_ht_mt*fractionnement_cd / out=prime_frac OUTPCT nofreq nocol;
+run;
+
+/* Canaux de souscription */
 proc freq data=contrat;
   tables canal_souscription_cd ;
 run;
  
-/* Prime annuelle moyenne */
-proc means data=contrat mean;
+/* Canaux de distribution */
+proc freq data=contrat;
+  tables contrat_distrib_lb;
+run;
+ 
+/* Statistiques sur la prime annuelle */
+proc univariate data=contrat;
   var prime_annuelle_ht_mt;
+run;
+
+/*Chiffre d'affaire*/
+proc means data=contrat sum;
+    var prime_annuelle_ht_mt;
 run;
  
 /* Repartition des PRO PART */
 proc freq data=contrat;
-  tables gamme_produit_cd ;
+  tables gamme_produit_cd;
 run;
 
+/* Produits vendus aux PRO PART */
+proc freq data=contrat;
+  tables gamme_produit_cd *  produit_cd;
+run;
+
+ 
 /* Durée moyenne de souscription */
 data contrat_date_souscription;
     set contrat;
     /*Calcul de la durée en jours depuis la souscription jusqu'à aujourd'hui*/
     /*duree_souscription = year(today()) - year(saisie_contrat_dt);*/
     duree_souscription = intck('month', saisie_contrat_dt, today());
+    
+    if duree_souscription >= 0 and duree_souscription < 5 then tranche_sous = '[00-05[';
+    else if duree_souscription >= 5 and duree_souscription < 10 then tranche_sous = '[05-10[';
+    else if duree_souscription >= 10 and duree_souscription < 15 then tranche_sous = '[10-15[';
+    else if duree_souscription >= 15 and duree_souscription < 20 then tranche_sous = '[15-20[';
+    else if duree_souscription >= 20 and duree_souscription < 25 then tranche_sous = '[20-25[';
+    else if duree_souscription >= 25 and duree_souscription < 30 then tranche_sous = '[25-30[';
+   	else if duree_souscription >= 30 and duree_souscription < 35 then tranche_sous = '[30-35[';
+    else if duree_souscription >= 35 and duree_souscription < 40 then tranche_sous = '[35-40[';
 run;
 
-proc means data=contrat_date_souscription mean;
+proc freq data=contrat_date_souscription;
+	tables tranche_sous;
+run;
+
+proc univariate data=contrat_date_souscription;
     var duree_souscription;
 run;
 
@@ -229,6 +290,20 @@ run;
 /*----------------------------------
 		TABLE FUSIONNEE
 ----------------------------------*/
+
+proc freq data=contrat_vehicule_societaire;
+  tables marque_vehicule_lb*contrat_distrib_lb / out=test OUTPCT noprint;
+run;
+
+data filtered_data;
+  set test; /* Remplacer 'test_sorted' par votre dataset */
+  if contrat_distrib_lb = "Partenariat"; /* Condition de filtrage */
+run;
+
+proc sort data=filtered_data out=test_freq_values;
+  by descending PCT_COL;
+run;
+
 
 /* Nombre de contrat Moyen par societaires */
 proc freq data=contrat_vehicule_societaire noprint;
@@ -239,10 +314,15 @@ proc means data=nb_contrats mean maxdec=2;
    var count;
 run;
 
+proc univariate data=nb_contrats;
+   var count;
+run;
+
+
 
 /* Relation sexe gamme produit */
 proc freq data=contrat_vehicule_societaire;
-	tables societaire_sexe_cd*gamme_produit_cd;
+	tables societaire_sexe_cd*gamme_produit_cd /  nocol nopercent nofreq;
 run;
 
 /* Tableau croisé formule par département */
@@ -260,12 +340,20 @@ run;
 		DIMINUER LE TAUX DE RESILIATION
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
-
 /* Durée moyenne de souscription par départements*/
 data souscription_dep;
     set formule_dep;
     /*Calcul de la durée en jours depuis la souscription jusqu'à aujourd'hui*/
     duree_souscription = intck('day', saisie_contrat_dt, today())/365.25;
+    
+    age = year(today()) - year(societaire_naissance_dt);
+	
+    if age < 30 then tranche_age = '01-29';
+    else if age < 40 then tranche_age = '30-39';
+    else if age < 50 then tranche_age = '40-49';
+    else if age < 60 then tranche_age = '50-59';
+    else if age < 70 then tranche_age = '60-69';
+    else tranche_age = '70 +';
 run;
 
 proc means data=souscription_dep mean;
@@ -281,18 +369,54 @@ proc means data=souscription_dep mean;
     output out=sous_moy_form;
 run;
 
+/* Durée moyenne de souscription par tranche d'age*/
+proc means data=souscription_dep mean;
+	class tranche_age;
+    var duree_souscription;
+    output out=sous_moy_age;
+run;
 
+proc means data=souscription_dep mean;
+	class tranche_age;
+    var duree_souscription;
+    output out=sous_moy_age;
+run;
 /*@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 		AUGMENTER LES PARTS DE MARCHE
 
 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@*/
 
-/*Chiffre d'affaire*/
-proc means data=contrat sum;
-    var prime_annuelle_ht_mt;
+/* Nombre de contrat par ans et par mois*/
+data tendances;
+    set contrat_vehicule_societaire;
+
+
+    annee_souscription = year(saisie_contrat_dt);
+    mois_souscription = month(saisie_contrat_dt);
 run;
 
+/* Nombre de contrat par ans*/
+proc freq data=tendances; 
+	tables annee_souscription;
+run;
+
+/* Nombre de contrat par mois*/
+proc freq data=tendances; 
+	tables mois_souscription;
+run;
+
+/* CA par ans*/
+proc means data=tendances sum; 
+	class annee_souscription;
+	var prime_annuelle_ht_mt;
+run;
+
+/* CA par mois*/
+proc means data=tendances; 
+	class mois_souscription;
+	var prime_annuelle_ht_mt;
+run;
 
 /* Chiffre d'affaire par formule et fractionnement*/
 proc means data=contrat_vehicule_societaire sum ;
@@ -309,7 +433,7 @@ proc means data=contrat_vehicule_societaire sum ;
 run;
 
 /* Chiffre d'affaire par departements*/
-proc means data=formule_dep sum ;
+proc means data=formule_dep mean ;
     class departement;
     var prime_annuelle_ht_mt;
     output out=ca_dep ;
@@ -321,29 +445,6 @@ proc means data=contrat_vehicule_societaire mean ;
     var prime_annuelle_ht_mt;
     output out=ca_dep;
 run;
-
-/* Chiffre d'affaire par cannaux de souscription*/
-proc means data=contrat_vehicule_societaire sum ;
-    class canal_souscription_cd;
-    var prime_annuelle_ht_mt;
-    output out=ca_dep;
-run;
-
-/* Chiffre d'affaire par departement et formule*/
-proc means data=formule_dep sum ;
-    class departement formule_courte_cd;
-    var prime_annuelle_ht_mt;
-    output out=ca_dep_formule;
-run;
-
-
-/* Chiffre d'affaire par departement et sexe*/
-proc means data=formule_dep sum ;
-    class departement societaire_sexe_cd;
-    var prime_annuelle_ht_mt;
-    output out=ca_dep_formule;
-run;
-
 
 /* Chiffre d'affaire par departement et age*/
 data age;
@@ -357,12 +458,71 @@ data age;
     else if age < 60 then tranche_age = '50-59';
     else if age < 70 then tranche_age = '60-69';
     else tranche_age = '70 +';
+run;
+
+
+
+data age;
+	set formule_dep;
+	age = year(today()) - year(societaire_naissance_dt);
+	
+    if age < 30 then tranche_age = '01-29';
+    else if age < 40 then tranche_age = '30-59';
+    else tranche_age = '60 +';
 
 run;
 
-proc means data=age sum ;
+data age;
+	set formule_dep;
+	age = year(today()) - year(societaire_naissance_dt);
+	
+	if age < 30 then tranche_age = '00-29';
+
+run;
+
+proc means data=age mean ;
     class departement tranche_age;
     var prime_annuelle_ht_mt;
     output out=ca_dep_age;
 run;
 
+
+/*age moyen par departement*/
+proc means data=age mean ;
+    class departement;
+    var age;
+    output out=dep_age;
+run;
+
+/*age moyen par canal*/
+data age_canal; 
+	set age; 
+	if canal_souscription_cd = "BU" then canal = "Bureau"; 
+	else if canal_souscription_cd = "CP" 
+		or canal_souscription_cd = "CR" 
+		or canal_souscription_cd = "CT" 
+		or canal_souscription_cd = "IN" 
+		or canal_souscription_cd = "WW" then canal = "Internet"; 
+	else if canal_souscription_cd = "OUT" or canal_souscription_cd = "SA" then canal = "Salon"; 
+	else if canal_souscription_cd = "TE" then canal = "Téléphone"; 
+run; 
+ 
+proc means data=age_canal mean ; 
+    class canal; 
+    var age; 
+    output out=dep_age; 
+run;
+
+/*age moyen par formule*/
+proc means data=age mean ;
+    class formule_courte_cd ;
+    var age;
+    output out=form_age;
+run;
+
+/*prime moyenne par tranche d'age*/
+proc means data=age mean;
+	class tranche_age;
+	var prime_annuelle_ht_mt;
+	output out=prime_tranche_age;
+run;
